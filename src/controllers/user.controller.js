@@ -1,0 +1,82 @@
+const User = require('../models/user.model');
+const Recommendation = require('../models/recommendation.model');
+const bcrypt = require('bcrypt');
+
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).send({
+        message: 'User tidak ditemukan!'
+      });
+    }
+    
+    // Dapatkan rekomendasi berdasarkan stress level
+    const recommendations = await Recommendation.findByStressLevel(user.stress_level);
+    
+    res.status(200).send({
+      user: user,
+      recommendations: recommendations
+    });
+  } catch (error) {
+    console.error('Error getting profile:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat mengambil profil!'
+    });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const userData = {};
+    
+    // Validasi dan persiapkan data yang akan diupdate
+    if (req.body.name) userData.name = req.body.name;
+    if (req.body.phone) userData.phone = req.body.phone;
+    if (req.body.profile_image) userData.profile_image = req.body.profile_image;
+    if (req.body.stress_level) userData.stress_level = req.body.stress_level;
+    
+    // Update password jika ada
+    if (req.body.password) {
+      const salt = await bcrypt.genSalt(10);
+      userData.password = await bcrypt.hash(req.body.password, salt);
+    }
+    
+    // Update email hanya jika berbeda dan belum digunakan
+    if (req.body.email) {
+      const user = await User.findById(userId);
+      if (user.email !== req.body.email) {
+        const existingUser = await User.findByEmail(req.body.email);
+        if (existingUser) {
+          return res.status(400).send({
+            message: 'Email sudah digunakan!'
+          });
+        }
+        userData.email = req.body.email;
+      }
+    }
+    
+    const updated = await User.update(userId, userData);
+    
+    if (!updated) {
+      return res.status(404).send({
+        message: 'User tidak ditemukan atau tidak ada perubahan!'
+      });
+    }
+    
+    const updatedUser = await User.findById(userId);
+    
+    res.status(200).send({
+      message: 'Profil berhasil diperbarui!',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat memperbarui profil!'
+    });
+  }
+};
