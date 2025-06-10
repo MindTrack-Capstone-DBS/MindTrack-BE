@@ -38,13 +38,37 @@ connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'mindtr
         )
       `;
 
+    const createJournalsTable = `
+        CREATE TABLE IF NOT EXISTS journals (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          title VARCHAR(255),
+          content TEXT NOT NULL,
+          mood_emoji VARCHAR(10) NOT NULL,
+          mood_value INT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `;
+
+    // Buat tabel users
     connection.query(createUsersTable, (err) => {
       if (err) {
         console.error('Error creating users table:', err);
         return;
       }
       console.log('Users table created or already exists');
-      connection.end();
+      
+      // Buat tabel journals
+      connection.query(createJournalsTable, (err) => {
+        if (err) {
+          console.error('Error creating journals table:', err);
+          return;
+        }
+        console.log('Journals table created or already exists');
+        connection.end();
+      });
     });
   });
 });
