@@ -13,7 +13,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', require('./src/routes/auth.routes'));
 app.use('/api/users', require('./src/routes/user.routes'));
-app.use('/api/journals', require('./src/routes/journal.routes')); // Tambahkan route jurnal
+app.use('/api/journals', require('./src/routes/journal.routes'));
+app.use('/api/chats', require('./src/routes/chat.routes')); // Tambahkan ini
 
 // Root route
 app.get('/', (req, res) => {

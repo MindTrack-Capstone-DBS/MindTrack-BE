@@ -33,6 +33,7 @@ connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'mindtr
           email VARCHAR(100) NOT NULL UNIQUE,
           phone VARCHAR(20),
           password VARCHAR(255) NOT NULL,
+          stress_level INT DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
@@ -52,6 +53,33 @@ connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'mindtr
         )
       `;
 
+    const createChatSessionsTable = `
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          is_active BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `;
+
+    const createChatMessagesTable = `
+        CREATE TABLE IF NOT EXISTS chat_messages (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          session_id INT NOT NULL,
+          user_id INT NOT NULL,
+          message TEXT NOT NULL,
+          is_bot BOOLEAN DEFAULT FALSE,
+          stress_prediction FLOAT NULL,
+          recommendations JSON NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `;
+
     // Buat tabel users
     connection.query(createUsersTable, (err) => {
       if (err) {
@@ -59,7 +87,7 @@ connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'mindtr
         return;
       }
       console.log('Users table created or already exists');
-      
+
       // Buat tabel journals
       connection.query(createJournalsTable, (err) => {
         if (err) {
@@ -67,7 +95,25 @@ connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'mindtr
           return;
         }
         console.log('Journals table created or already exists');
-        connection.end();
+
+        // Buat tabel chat_sessions
+        connection.query(createChatSessionsTable, (err) => {
+          if (err) {
+            console.error('Error creating chat_sessions table:', err);
+            return;
+          }
+          console.log('Chat sessions table created or already exists');
+
+          // Buat tabel chat_messages
+          connection.query(createChatMessagesTable, (err) => {
+            if (err) {
+              console.error('Error creating chat_messages table:', err);
+              return;
+            }
+            console.log('Chat messages table created or already exists');
+            connection.end();
+          });
+        });
       });
     });
   });
