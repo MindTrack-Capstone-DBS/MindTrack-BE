@@ -7,65 +7,65 @@ class MLService {
 
   async predictStress(text) {
     try {
-      const response = await axios.post(`${this.mlApiUrl}/predict`, {
-        text: text
-      }, {
-        timeout: 10000, // 10 second timeout
-        headers: {
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        `${this.mlApiUrl}/predict`,
+        {
+          text: text,
+        },
+        {
+          timeout: 10000, // 10 second timeout
+          headers: {
+            'Content-Type': 'application/json',
+          },
         }
-      });
+      );
 
       return {
         success: true,
         prediction: response.data.prediction,
         recommendations: response.data.recommendations || [],
-        confidence: response.data.confidence || null
+        confidence: response.data.confidence || null,
       };
     } catch (error) {
       console.error('ML API Error:', error.message);
-      
+
       // Fallback response if ML API is not available
       return {
         success: false,
         prediction: 'unknown',
-        recommendations: [
-          'Cobalah untuk beristirahat sejenak',
-          'Lakukan aktivitas yang Anda sukai',
-          'Berbicara dengan orang terdekat jika diperlukan'
-        ],
-        error: 'ML service temporarily unavailable'
+        recommendations: ['Cobalah untuk beristirahat sejenak', 'Lakukan aktivitas yang Anda sukai', 'Berbicara dengan orang terdekat jika diperlukan'],
+        error: 'ML service temporarily unavailable',
       };
     }
   }
 
   generateBotResponse(userMessage, mlResult) {
     const responses = {
-      'stress': [
-        'Saya memahami Anda sedang mengalami stres. Mari kita bicarakan lebih lanjut tentang apa yang Anda rasakan.',
-        'Terima kasih telah berbagi. Stres memang bisa sangat mengganggu. Apa yang paling membebani pikiran Anda saat ini?',
-        'Saya di sini untuk mendengarkan. Ceritakan lebih detail tentang situasi yang membuat Anda stres.'
+      stress: [
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'I understand you are experiencing stress. Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for trusting me with your feelings. Here is an analysis of your current condition and recommendations that might help.',
       ],
-      'anxiety': [
-        'Saya mengerti perasaan cemas yang Anda alami. Anda tidak sendirian dalam menghadapi ini.',
-        'Kecemasan memang bisa sangat mengganggu. Apakah ada pemicu khusus yang membuat Anda merasa cemas?',
-        'Terima kasih sudah mempercayai saya. Mari kita cari cara untuk mengelola perasaan cemas ini bersama-sama.'
+      anxiety: [
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'I understand the anxious feelings you are experiencing. Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for trusting me. Here is an analysis of your current condition and recommendations that might help.',
       ],
-      'depression': [
-        'Saya memahami betapa beratnya perasaan yang Anda alami. Anda sudah sangat berani untuk berbagi.',
-        'Perasaan seperti ini memang sangat berat. Saya di sini untuk mendampingi Anda.',
-        'Terima kasih telah mempercayai saya. Anda tidak sendirian dalam menghadapi perasaan ini.'
+      depression: [
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'I understand how heavy the feelings you are experiencing are. Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for trusting me. Here is an analysis of your current condition and recommendations that might help.',
       ],
-      'normal': [
-        'Senang mendengar Anda dalam kondisi yang baik. Bagaimana hari Anda berjalan?',
-        'Terima kasih telah berbagi. Apakah ada hal lain yang ingin Anda ceritakan?',
-        'Saya di sini untuk mendengarkan. Ceritakan lebih banyak tentang perasaan Anda hari ini.'
+      normal: [
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for sharing. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
       ],
-      'unknown': [
-        'Terima kasih telah berbagi. Bagaimana perasaan Anda saat ini?',
-        'Saya di sini untuk mendengarkan. Ceritakan lebih lanjut tentang apa yang Anda rasakan.',
-        'Apa yang paling mengganggu pikiran Anda hari ini?'
-      ]
+      unknown: [
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for sharing. Here is an analysis of your current condition and recommendations that might help.',
+        'Thank you for sharing your story. Here is an analysis of your current condition and recommendations that might help.',
+      ],
     };
 
     const category = mlResult.prediction || 'unknown';

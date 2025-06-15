@@ -46,6 +46,33 @@ class ChatSession {
     }
   }
 
+  // New method to get sessions with message count
+  static async findByUserIdWithMessageCount(userId, limit = 10, offset = 0) {
+    const connection = await this.getConnection();
+    try {
+      const limitInt = parseInt(limit) || 10;
+      const offsetInt = parseInt(offset) || 0;
+
+      // Only get sessions that have at least one message (indicating interaction)
+      const [rows] = await connection.execute(
+        `SELECT cs.*, COUNT(cm.id) as message_count 
+         FROM chat_sessions cs 
+         LEFT JOIN chat_messages cm ON cs.id = cm.session_id 
+         WHERE cs.user_id = ? 
+         GROUP BY cs.id 
+         HAVING message_count > 0 
+         ORDER BY cs.updated_at DESC 
+         LIMIT ${limitInt} OFFSET ${offsetInt}`,
+        [userId]
+      );
+      await connection.end();
+      return rows;
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
+  }
+
   static async findById(sessionId, userId) {
     const connection = await this.getConnection();
     try {
@@ -124,6 +151,10 @@ class ChatMessage {
         newMessage.predicted_class,
         newMessage.recommendations,
       ]);
+
+      // Update session's updated_at timestamp when a message is added
+      await connection.execute('UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newMessage.session_id]);
+
       await connection.end();
       return { id: result.insertId, ...newMessage };
     } catch (error) {
@@ -158,12 +189,14 @@ class ChatMessage {
   static async getLatestMessages(userId, limit = 10) {
     const connection = await this.getConnection();
     try {
+      const limitInt = parseInt(limit) || 10;
+      
       const [rows] = await connection.execute(
         `SELECT cm.*, cs.title as session_title FROM chat_messages cm 
          JOIN chat_sessions cs ON cm.session_id = cs.id 
          WHERE cs.user_id = ? 
-         ORDER BY cm.created_at DESC LIMIT ?`,
-        [userId, limit]
+         ORDER BY cm.created_at DESC LIMIT ${limitInt}`,
+        [userId]
       );
       await connection.end();
       return rows;
