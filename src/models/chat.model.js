@@ -20,10 +20,7 @@ class ChatSession {
   static async create(newSession) {
     const connection = await this.getConnection();
     try {
-      const [result] = await connection.execute(
-        'INSERT INTO chat_sessions (user_id, title, is_active) VALUES (?, ?, ?)',
-        [newSession.user_id, newSession.title, newSession.is_active]
-      );
+      const [result] = await connection.execute('INSERT INTO chat_sessions (user_id, title, is_active) VALUES (?, ?, ?)', [newSession.user_id, newSession.title, newSession.is_active]);
       await connection.end();
       return { id: result.insertId, ...newSession };
     } catch (error) {
@@ -35,10 +32,12 @@ class ChatSession {
   static async findByUserId(userId, limit = 10, offset = 0) {
     const connection = await this.getConnection();
     try {
-      const [rows] = await connection.execute(
-        'SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
-        [userId, limit, offset]
-      );
+      // Ensure limit and offset are integers and safe for string interpolation
+      const limitInt = parseInt(limit) || 10;
+      const offsetInt = parseInt(offset) || 0;
+
+      // Use string interpolation for LIMIT and OFFSET, but keep userId as parameter for security
+      const [rows] = await connection.execute(`SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ${limitInt} OFFSET ${offsetInt}`, [userId]);
       await connection.end();
       return rows;
     } catch (error) {
@@ -50,10 +49,7 @@ class ChatSession {
   static async findById(sessionId, userId) {
     const connection = await this.getConnection();
     try {
-      const [rows] = await connection.execute(
-        'SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?',
-        [sessionId, userId]
-      );
+      const [rows] = await connection.execute('SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?', [sessionId, userId]);
       await connection.end();
       return rows.length ? rows[0] : null;
     } catch (error) {
@@ -66,21 +62,15 @@ class ChatSession {
     const connection = await this.getConnection();
     try {
       // First, set all sessions to inactive
-      await connection.execute(
-        'UPDATE chat_sessions SET is_active = FALSE WHERE user_id = ?',
-        [userId]
-      );
-      
+      await connection.execute('UPDATE chat_sessions SET is_active = FALSE WHERE user_id = ?', [userId]);
+
       // Then set the specified session to active
       if (isActive) {
-        const [result] = await connection.execute(
-          'UPDATE chat_sessions SET is_active = TRUE WHERE id = ? AND user_id = ?',
-          [sessionId, userId]
-        );
+        const [result] = await connection.execute('UPDATE chat_sessions SET is_active = TRUE WHERE id = ? AND user_id = ?', [sessionId, userId]);
         await connection.end();
         return result.affectedRows > 0;
       }
-      
+
       await connection.end();
       return true;
     } catch (error) {
@@ -92,10 +82,7 @@ class ChatSession {
   static async delete(sessionId, userId) {
     const connection = await this.getConnection();
     try {
-      const [result] = await connection.execute(
-        'DELETE FROM chat_sessions WHERE id = ? AND user_id = ?',
-        [sessionId, userId]
-      );
+      const [result] = await connection.execute('DELETE FROM chat_sessions WHERE id = ? AND user_id = ?', [sessionId, userId]);
       await connection.end();
       return result.affectedRows > 0;
     } catch (error) {
@@ -128,18 +115,15 @@ class ChatMessage {
   static async create(newMessage) {
     const connection = await this.getConnection();
     try {
-      const [result] = await connection.execute(
-        'INSERT INTO chat_messages (session_id, user_id, message, is_bot, stress_prediction, predicted_class, recommendations) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          newMessage.session_id,
-          newMessage.user_id,
-          newMessage.message,
-          newMessage.is_bot,
-          newMessage.stress_prediction,
-          newMessage.predicted_class,
-          newMessage.recommendations
-        ]
-      );
+      const [result] = await connection.execute('INSERT INTO chat_messages (session_id, user_id, message, is_bot, stress_prediction, predicted_class, recommendations) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+        newMessage.session_id,
+        newMessage.user_id,
+        newMessage.message,
+        newMessage.is_bot,
+        newMessage.stress_prediction,
+        newMessage.predicted_class,
+        newMessage.recommendations,
+      ]);
       await connection.end();
       return { id: result.insertId, ...newMessage };
     } catch (error) {
@@ -151,12 +135,17 @@ class ChatMessage {
   static async findBySessionId(sessionId, userId, limit = 50, offset = 0) {
     const connection = await this.getConnection();
     try {
+      // Pastikan limit dan offset adalah integer
+      const limitInt = parseInt(limit) || 50;
+      const offsetInt = parseInt(offset) || 0;
+
+      // Gunakan string interpolation untuk LIMIT dan OFFSET, tapi tetap gunakan parameter untuk sessionId dan userId
       const [rows] = await connection.execute(
         `SELECT cm.* FROM chat_messages cm 
          JOIN chat_sessions cs ON cm.session_id = cs.id 
          WHERE cm.session_id = ? AND cs.user_id = ? 
-         ORDER BY cm.created_at ASC LIMIT ? OFFSET ?`,
-        [sessionId, userId, limit, offset]
+         ORDER BY cm.created_at ASC LIMIT ${limitInt} OFFSET ${offsetInt}`,
+        [sessionId, userId]
       );
       await connection.end();
       return rows;
