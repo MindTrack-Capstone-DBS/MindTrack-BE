@@ -18,4 +18,7 @@ router.post('/sessions/:sessionId/messages', chatController.sendMessage);
 router.get('/sessions/:sessionId/messages', chatController.getMessages);
 router.get('/messages/latest', chatController.getLatestMessages);
 
+// Recommendations endpoint
+router.get('/latest-recommendations', chatController.getLatestRecommendations);
+
 module.exports = router;

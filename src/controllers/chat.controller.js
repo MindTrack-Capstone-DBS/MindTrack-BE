@@ -237,3 +237,41 @@ exports.getLatestMessages = async (req, res) => {
     });
   }
 };
+
+exports.getLatestRecommendations = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+
+    const messages = await ChatMessage.getLatestRecommendations(req.userId, limit);
+
+    // Parse recommendations and extract unique recommendations
+    let allRecommendations = [];
+
+    messages.forEach((msg) => {
+      if (msg.recommendations) {
+        try {
+          const recommendations = JSON.parse(msg.recommendations);
+          if (Array.isArray(recommendations)) {
+            allRecommendations = allRecommendations.concat(recommendations);
+          }
+        } catch (error) {
+          console.error('Error parsing recommendations:', error);
+        }
+      }
+    });
+
+    // Remove duplicates and limit to requested number
+    const uniqueRecommendations = [...new Set(allRecommendations)].slice(0, limit);
+
+    res.status(200).send({
+      message: 'Latest recommendations retrieved successfully!',
+      recommendations: uniqueRecommendations,
+      total: uniqueRecommendations.length,
+    });
+  } catch (error) {
+    console.error('Error getting latest recommendations:', error);
+    res.status(500).send({
+      message: 'Error retrieving latest recommendations!',
+    });
+  }
+};

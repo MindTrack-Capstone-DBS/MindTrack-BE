@@ -190,11 +190,33 @@ class ChatMessage {
     const connection = await this.getConnection();
     try {
       const limitInt = parseInt(limit) || 10;
-      
+
       const [rows] = await connection.execute(
         `SELECT cm.*, cs.title as session_title FROM chat_messages cm 
          JOIN chat_sessions cs ON cm.session_id = cs.id 
          WHERE cs.user_id = ? 
+         ORDER BY cm.created_at DESC LIMIT ${limitInt}`,
+        [userId]
+      );
+      await connection.end();
+      return rows;
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
+  }
+
+  static async getLatestRecommendations(userId, limit = 5) {
+    const connection = await this.getConnection();
+    try {
+      const limitInt = parseInt(limit) || 5;
+
+      // Get latest bot messages that have recommendations
+      const [rows] = await connection.execute(
+        `SELECT cm.recommendations, cm.predicted_class, cm.created_at, cs.title as session_title 
+         FROM chat_messages cm 
+         JOIN chat_sessions cs ON cm.session_id = cs.id 
+         WHERE cs.user_id = ? AND cm.is_bot = true AND cm.recommendations IS NOT NULL 
          ORDER BY cm.created_at DESC LIMIT ${limitInt}`,
         [userId]
       );
