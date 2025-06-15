@@ -1,7 +1,13 @@
 const mysql = require('mysql2/promise');
 const dbConfig = require('../config/db.config');
 
-class Chat {
+class ChatSession {
+  constructor(session) {
+    this.user_id = session.user_id;
+    this.title = session.title;
+    this.is_active = session.is_active || false;
+  }
+
   static async getConnection() {
     return await mysql.createConnection({
       host: dbConfig.HOST,
@@ -11,28 +17,28 @@ class Chat {
     });
   }
 
-  // Create new chat session
-  static async createSession(userId, title) {
+  static async create(newSession) {
     const connection = await this.getConnection();
     try {
-      // Set all other sessions to inactive
-      await connection.execute('UPDATE chat_sessions SET is_active = FALSE WHERE user_id = ?', [userId]);
-
-      // Create new session
-      const [result] = await connection.execute('INSERT INTO chat_sessions (user_id, title, is_active) VALUES (?, ?, TRUE)', [userId, title]);
+      const [result] = await connection.execute(
+        'INSERT INTO chat_sessions (user_id, title, is_active) VALUES (?, ?, ?)',
+        [newSession.user_id, newSession.title, newSession.is_active]
+      );
       await connection.end();
-      return { id: result.insertId, user_id: userId, title, is_active: true };
+      return { id: result.insertId, ...newSession };
     } catch (error) {
       await connection.end();
       throw error;
     }
   }
 
-  // Get user's chat sessions
-  static async getUserSessions(userId) {
+  static async findByUserId(userId, limit = 10, offset = 0) {
     const connection = await this.getConnection();
     try {
-      const [rows] = await connection.execute('SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY updated_at DESC', [userId]);
+      const [rows] = await connection.execute(
+        'SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+        [userId, limit, offset]
+      );
       await connection.end();
       return rows;
     } catch (error) {
@@ -41,61 +47,57 @@ class Chat {
     }
   }
 
-  // Add message to session
-  static async addMessage(sessionId, userId, message, isBot = false, stressPrediction = null, recommendations = null) {
+  static async findById(sessionId, userId) {
     const connection = await this.getConnection();
     try {
-      const [result] = await connection.execute('INSERT INTO chat_messages (session_id, user_id, message, is_bot, stress_prediction, recommendations) VALUES (?, ?, ?, ?, ?, ?)', [
-        sessionId,
-        userId,
-        message,
-        isBot,
-        stressPrediction,
-        recommendations ? JSON.stringify(recommendations) : null,
-      ]);
-
-      // Update session timestamp
-      await connection.execute('UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [sessionId]);
-
+      const [rows] = await connection.execute(
+        'SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?',
+        [sessionId, userId]
+      );
       await connection.end();
-      return { id: result.insertId, session_id: sessionId, user_id: userId, message, is_bot: isBot, stress_prediction: stressPrediction, recommendations };
+      return rows.length ? rows[0] : null;
     } catch (error) {
       await connection.end();
       throw error;
     }
   }
 
-  // Get messages for a session
-  static async getSessionMessages(sessionId, userId) {
+  static async setActive(sessionId, userId, isActive = true) {
     const connection = await this.getConnection();
     try {
-      const [rows] = await connection.execute('SELECT * FROM chat_messages WHERE session_id = ? AND user_id = ? ORDER BY created_at ASC', [sessionId, userId]);
-      await connection.end();
-      return rows.map((row) => ({
-        ...row,
-        recommendations: row.recommendations ? JSON.parse(row.recommendations) : null,
-      }));
-    } catch (error) {
-      await connection.end();
-      throw error;
-    }
-  }
-
-  // Get or create active session
-  static async getOrCreateActiveSession(userId) {
-    const connection = await this.getConnection();
-    try {
-      // Check for active session
-      const [rows] = await connection.execute('SELECT * FROM chat_sessions WHERE user_id = ? AND is_active = TRUE', [userId]);
-
-      if (rows.length > 0) {
+      // First, set all sessions to inactive
+      await connection.execute(
+        'UPDATE chat_sessions SET is_active = FALSE WHERE user_id = ?',
+        [userId]
+      );
+      
+      // Then set the specified session to active
+      if (isActive) {
+        const [result] = await connection.execute(
+          'UPDATE chat_sessions SET is_active = TRUE WHERE id = ? AND user_id = ?',
+          [sessionId, userId]
+        );
         await connection.end();
-        return rows[0];
+        return result.affectedRows > 0;
       }
-
-      // Create new session if none exists
+      
       await connection.end();
-      return await this.createSession(userId, `Chat ${new Date().toLocaleDateString()}`);
+      return true;
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
+  }
+
+  static async delete(sessionId, userId) {
+    const connection = await this.getConnection();
+    try {
+      const [result] = await connection.execute(
+        'DELETE FROM chat_sessions WHERE id = ? AND user_id = ?',
+        [sessionId, userId]
+      );
+      await connection.end();
+      return result.affectedRows > 0;
     } catch (error) {
       await connection.end();
       throw error;
@@ -103,4 +105,84 @@ class Chat {
   }
 }
 
-module.exports = Chat;
+class ChatMessage {
+  constructor(message) {
+    this.session_id = message.session_id;
+    this.user_id = message.user_id;
+    this.message = message.message;
+    this.is_bot = message.is_bot || false;
+    this.stress_prediction = message.stress_prediction || null;
+    this.predicted_class = message.predicted_class || null;
+    this.recommendations = message.recommendations || null;
+  }
+
+  static async getConnection() {
+    return await mysql.createConnection({
+      host: dbConfig.HOST,
+      user: dbConfig.USER,
+      password: dbConfig.PASSWORD,
+      database: dbConfig.DB,
+    });
+  }
+
+  static async create(newMessage) {
+    const connection = await this.getConnection();
+    try {
+      const [result] = await connection.execute(
+        'INSERT INTO chat_messages (session_id, user_id, message, is_bot, stress_prediction, predicted_class, recommendations) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          newMessage.session_id,
+          newMessage.user_id,
+          newMessage.message,
+          newMessage.is_bot,
+          newMessage.stress_prediction,
+          newMessage.predicted_class,
+          newMessage.recommendations
+        ]
+      );
+      await connection.end();
+      return { id: result.insertId, ...newMessage };
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
+  }
+
+  static async findBySessionId(sessionId, userId, limit = 50, offset = 0) {
+    const connection = await this.getConnection();
+    try {
+      const [rows] = await connection.execute(
+        `SELECT cm.* FROM chat_messages cm 
+         JOIN chat_sessions cs ON cm.session_id = cs.id 
+         WHERE cm.session_id = ? AND cs.user_id = ? 
+         ORDER BY cm.created_at ASC LIMIT ? OFFSET ?`,
+        [sessionId, userId, limit, offset]
+      );
+      await connection.end();
+      return rows;
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
+  }
+
+  static async getLatestMessages(userId, limit = 10) {
+    const connection = await this.getConnection();
+    try {
+      const [rows] = await connection.execute(
+        `SELECT cm.*, cs.title as session_title FROM chat_messages cm 
+         JOIN chat_sessions cs ON cm.session_id = cs.id 
+         WHERE cs.user_id = ? 
+         ORDER BY cm.created_at DESC LIMIT ?`,
+        [userId, limit]
+      );
+      await connection.end();
+      return rows;
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
+  }
+}
+
+module.exports = { ChatSession, ChatMessage };

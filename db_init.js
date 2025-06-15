@@ -73,7 +73,8 @@ connection.query(`CREATE DATABASE IF NOT EXISTS ${process.env.DB_NAME || 'mindtr
           message TEXT NOT NULL,
           is_bot BOOLEAN DEFAULT FALSE,
           stress_prediction FLOAT NULL,
-          recommendations JSON NULL,
+          predicted_class VARCHAR(100) NULL,
+          recommendations TEXT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

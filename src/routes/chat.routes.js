@@ -7,10 +7,15 @@ const router = express.Router();
 // Semua routes memerlukan autentikasi
 router.use(authMiddleware);
 
-// Chat routes
-router.get('/sessions', chatController.getSessions);
+// Chat session endpoints
 router.post('/sessions', chatController.createSession);
-router.get('/sessions/:sessionId/messages', chatController.getSessionMessages);
-router.post('/message', chatController.sendMessage);
+router.get('/sessions', chatController.getSessions);
+router.put('/sessions/:sessionId/activate', chatController.setActiveSession);
+router.delete('/sessions/:sessionId', chatController.deleteSession);
+
+// Chat message endpoints
+router.post('/sessions/:sessionId/messages', chatController.sendMessage);
+router.get('/sessions/:sessionId/messages', chatController.getMessages);
+router.get('/messages/latest', chatController.getLatestMessages);
 
 module.exports = router;

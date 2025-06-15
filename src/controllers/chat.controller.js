@@ -1,126 +1,237 @@
-const Chat = require('../models/chat.model');
-const Recommendation = require('../models/recommendation.model');
+const { ChatSession, ChatMessage } = require('../models/chat.model');
+const mlService = require('../services/ml.service');
 
-// Get user's chat sessions
-exports.getSessions = async (req, res) => {
+exports.createSession = async (req, res) => {
   try {
-    const userId = req.userId;
-    const sessions = await Chat.getUserSessions(userId);
-
-    res.status(200).send({
-      message: 'Sessions retrieved successfully',
-      sessions: sessions,
-    });
-  } catch (error) {
-    console.error('Error getting sessions:', error);
-    res.status(500).send({
-      message: 'Terjadi kesalahan saat mengambil sessions!',
-    });
-  }
-};
-
-// Get messages for a session
-exports.getSessionMessages = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const sessionId = req.params.sessionId;
-
-    const messages = await Chat.getSessionMessages(sessionId, userId);
-
-    res.status(200).send({
-      message: 'Messages retrieved successfully',
-      messages: messages,
-    });
-  } catch (error) {
-    console.error('Error getting messages:', error);
-    res.status(500).send({
-      message: 'Terjadi kesalahan saat mengambil messages!',
-    });
-  }
-};
-
-// Send message and get AI response
-exports.sendMessage = async (req, res) => {
-  try {
-    const userId = req.userId;
-    const { message, session_id, stress_prediction, recommendations } = req.body;
-
-    if (!message) {
+    const { title } = req.body;
+    
+    if (!title) {
       return res.status(400).send({
-        message: 'Message is required!',
+        message: 'Judul sesi chat harus diisi!'
       });
     }
 
-    // Get or create active session
-    let sessionId = session_id;
-    if (!sessionId) {
-      const session = await Chat.getOrCreateActiveSession(userId);
-      sessionId = session.id;
+    // Set all other sessions to inactive
+    await ChatSession.setActive(null, req.userId, false);
+
+    const session = new ChatSession({
+      user_id: req.userId,
+      title: title,
+      is_active: true
+    });
+
+    const savedSession = await ChatSession.create(session);
+
+    res.status(201).send({
+      message: 'Sesi chat berhasil dibuat!',
+      session: savedSession
+    });
+  } catch (error) {
+    console.error('Error creating chat session:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat membuat sesi chat!'
+    });
+  }
+};
+
+exports.getSessions = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
+
+    const sessions = await ChatSession.findByUserId(req.userId, limit, offset);
+
+    res.status(200).send({
+      message: 'Sesi chat berhasil diambil!',
+      sessions: sessions,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: sessions.length
+      }
+    });
+  } catch (error) {
+    console.error('Error getting chat sessions:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat mengambil sesi chat!'
+    });
+  }
+};
+
+exports.setActiveSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await ChatSession.findById(sessionId, req.userId);
+    if (!session) {
+      return res.status(404).send({
+        message: 'Sesi chat tidak ditemukan!'
+      });
+    }
+
+    await ChatSession.setActive(sessionId, req.userId, true);
+
+    res.status(200).send({
+      message: 'Sesi chat berhasil diaktifkan!'
+    });
+  } catch (error) {
+    console.error('Error setting active session:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat mengaktifkan sesi chat!'
+    });
+  }
+};
+
+exports.sendMessage = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).send({
+        message: 'Pesan tidak boleh kosong!'
+      });
+    }
+
+    // Verify session exists and belongs to user
+    const session = await ChatSession.findById(sessionId, req.userId);
+    if (!session) {
+      return res.status(404).send({
+        message: 'Sesi chat tidak ditemukan!'
+      });
     }
 
     // Save user message
-    await Chat.addMessage(sessionId, userId, message, false, stress_prediction, recommendations);
-
-    // Generate AI response based on stress level
-    let botResponse = 'Terima kasih telah berbagi. Saya di sini untuk membantu Anda.';
-    let botRecommendations = [];
-
-    if (stress_prediction !== null && stress_prediction !== undefined) {
-      const stressLevel = Math.round(stress_prediction);
-
-      // Get recommendations based on stress level
-      if (recommendations && recommendations.length > 0) {
-        botRecommendations = recommendations;
-      } else {
-        // Fallback recommendations
-        const defaultRecommendations = await Recommendation.findByStressLevel(stressLevel);
-        botRecommendations = defaultRecommendations.map((rec) => rec.title || rec);
-      }
-
-      if (stressLevel >= 5) {
-        botResponse = 'Saya melihat Anda sedang mengalami stress. Berikut beberapa saran yang mungkin membantu:';
-      } else if (stressLevel >= 3) {
-        botResponse = 'Sepertinya Anda sedang mengalami stress sedang. Mari kita coba beberapa teknik untuk membantu Anda merasa lebih baik:';
-      } else {
-        botResponse = 'Senang mendengar Anda dalam kondisi yang relatif baik. Berikut beberapa tips untuk menjaga kesehatan mental Anda:';
-      }
-    }
-
-    // Save bot response
-    await Chat.addMessage(sessionId, userId, botResponse, true, null, botRecommendations);
-
-    res.status(200).send({
-      message: 'Message sent successfully',
+    const userMessage = new ChatMessage({
       session_id: sessionId,
-      bot_response: {
-        message: botResponse,
-        recommendations: botRecommendations,
+      user_id: req.userId,
+      message: message.trim(),
+      is_bot: false
+    });
+
+    const savedUserMessage = await ChatMessage.create(userMessage);
+
+    // Get ML prediction
+    const mlResult = await mlService.predictStress(message);
+    
+    // Generate bot response
+    const botResponseText = mlService.generateBotResponse(message, mlResult);
+    
+    // Save bot message with ML results
+    const botMessage = new ChatMessage({
+      session_id: sessionId,
+      user_id: req.userId,
+      message: botResponseText,
+      is_bot: true,
+      stress_prediction: mlResult.confidence || null,
+      predicted_class: mlResult.prediction || null,
+      recommendations: mlResult.recommendations ? JSON.stringify(mlResult.recommendations) : null
+    });
+
+    const savedBotMessage = await ChatMessage.create(botMessage);
+
+    res.status(201).send({
+      message: 'Pesan berhasil dikirim!',
+      userMessage: savedUserMessage,
+      botMessage: {
+        ...savedBotMessage,
+        recommendations: mlResult.recommendations
       },
+      mlResult: mlResult
     });
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).send({
-      message: 'Terjadi kesalahan saat mengirim message!',
+      message: 'Terjadi kesalahan saat mengirim pesan!'
     });
   }
 };
 
-// Create new chat session
-exports.createSession = async (req, res) => {
+exports.getMessages = async (req, res) => {
   try {
-    const userId = req.userId;
-    const { title } = req.body;
+    const { sessionId } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
 
-    const session = await Chat.createSession(userId, title || `Chat ${new Date().toLocaleDateString()}`);
+    // Verify session exists and belongs to user
+    const session = await ChatSession.findById(sessionId, req.userId);
+    if (!session) {
+      return res.status(404).send({
+        message: 'Sesi chat tidak ditemukan!'
+      });
+    }
 
-    res.status(201).send({
-      message: 'Session created successfully',
+    const messages = await ChatMessage.findBySessionId(sessionId, req.userId, limit, offset);
+    
+    // Parse recommendations JSON for bot messages
+    const parsedMessages = messages.map(msg => ({
+      ...msg,
+      recommendations: msg.recommendations ? JSON.parse(msg.recommendations) : null
+    }));
+
+    res.status(200).send({
+      message: 'Pesan berhasil diambil!',
+      messages: parsedMessages,
       session: session,
+      pagination: {
+        page: page,
+        limit: limit,
+        total: messages.length
+      }
     });
   } catch (error) {
-    console.error('Error creating session:', error);
+    console.error('Error getting messages:', error);
     res.status(500).send({
-      message: 'Terjadi kesalahan saat membuat session!',
+      message: 'Terjadi kesalahan saat mengambil pesan!'
+    });
+  }
+};
+
+exports.deleteSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const deleted = await ChatSession.delete(sessionId, req.userId);
+    
+    if (!deleted) {
+      return res.status(404).send({
+        message: 'Sesi chat tidak ditemukan!'
+      });
+    }
+
+    res.status(200).send({
+      message: 'Sesi chat berhasil dihapus!'
+    });
+  } catch (error) {
+    console.error('Error deleting chat session:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat menghapus sesi chat!'
+    });
+  }
+};
+
+exports.getLatestMessages = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    
+    const messages = await ChatMessage.getLatestMessages(req.userId, limit);
+    
+    // Parse recommendations JSON for bot messages
+    const parsedMessages = messages.map(msg => ({
+      ...msg,
+      recommendations: msg.recommendations ? JSON.parse(msg.recommendations) : null
+    }));
+
+    res.status(200).send({
+      message: 'Pesan terbaru berhasil diambil!',
+      messages: parsedMessages
+    });
+  } catch (error) {
+    console.error('Error getting latest messages:', error);
+    res.status(500).send({
+      message: 'Terjadi kesalahan saat mengambil pesan terbaru!'
     });
   }
 };
