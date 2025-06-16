@@ -1,9 +1,36 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const { spawn } = require('child_process');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Start ML API server
+const startMLAPI = () => {
+  console.log('Starting ML API server...');
+
+  const mlApiPath = path.join(__dirname, 'src', 'ml-api');
+  const pythonProcess = spawn('uvicorn', ['main:app', '--reload', '--port', '8000'], {
+    cwd: mlApiPath,
+    shell: true,
+    stdio: 'inherit',
+  });
+
+  pythonProcess.on('error', (err) => {
+    console.error('Failed to start ML API server:', err);
+  });
+
+  process.on('exit', () => {
+    pythonProcess.kill();
+  });
+};
+
+// Only start ML API in development mode
+if (process.env.NODE_ENV !== 'production') {
+  startMLAPI();
+}
 
 // Middleware
 app.use(cors());
