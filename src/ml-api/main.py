@@ -9,6 +9,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import pandas as pd
+import os
 
 nltk.download('punkt_tab')
 nltk.download('punkt')
@@ -92,3 +93,11 @@ def predict(input: TextInput):
         "prediction": label,
         "recommendations": recommendations if recommendations else ["Tidak ada rekomendasi ditemukan."]
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TensorFlow logging
+    os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN for memory
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
