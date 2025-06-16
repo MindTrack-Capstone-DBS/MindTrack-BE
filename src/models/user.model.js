@@ -46,7 +46,7 @@ class User {
   static async findById(id) {
     const connection = await this.getConnection();
     try {
-      const [rows] = await connection.execute('SELECT id, name, email, phone, created_at, updated_at FROM users WHERE id = ?', [id]);
+      const [rows] = await connection.execute('SELECT * FROM users WHERE id = ?', [id]);
       await connection.end();
       return rows.length ? rows[0] : null;
     } catch (error) {
