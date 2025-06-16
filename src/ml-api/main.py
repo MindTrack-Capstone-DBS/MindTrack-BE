@@ -11,6 +11,11 @@ from nltk.stem import WordNetLemmatizer
 import pandas as pd
 import os
 
+# Configure TensorFlow to avoid CUDA errors
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+tf.config.set_visible_devices([], 'GPU')  # Force CPU usage
+
 nltk.download('punkt_tab')
 nltk.download('punkt')
 nltk.download('stopwords')
