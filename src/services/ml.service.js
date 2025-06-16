@@ -2,7 +2,7 @@ const axios = require('axios');
 
 class MLService {
   constructor() {
-    this.mlApiUrl = process.env.ML_API_URL || 'http://localhost:8000';
+    this.mlApiUrl = process.env.ML_API_URL || 'http://mindtrack.up.railway.app';
   }
 
   async predictStress(text) {
