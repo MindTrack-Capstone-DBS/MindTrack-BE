@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+require('./db_init');
 const { spawn } = require('child_process');
 const path = require('path');
 
