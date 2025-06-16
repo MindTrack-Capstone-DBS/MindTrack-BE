@@ -28,7 +28,7 @@ const startMLAPI = () => {
 };
 
 // Only start ML API in development mode
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && !process.env.ML_API_URL) {
   startMLAPI();
 }
 
