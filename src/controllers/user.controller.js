@@ -98,10 +98,10 @@ exports.changePassword = async (req, res) => {
 
     // Ambil user dari database
     const user = await User.findById(userId);
-    if (!user) {
+    if (!user || !user.password) {
       return res.status(404).json({
         success: false,
-        message: 'User tidak ditemukan',
+        message: 'User tidak ditemukan atau password tidak tersedia',
       });
     }
 
