@@ -75,3 +75,60 @@ exports.updateProfile = async (req, res) => {
     });
   }
 };
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.userId;
+
+    // Validasi input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password dan new password harus diisi',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password baru minimal 6 karakter',
+      });
+    }
+
+    // Ambil user dari database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User tidak ditemukan',
+      });
+    }
+
+    // Verifikasi current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password saat ini tidak benar',
+      });
+    }
+
+    // Hash password baru
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password di database
+    await User.update(userId, { password: hashedNewPassword });
+
+    res.json({
+      success: true,
+      message: 'Password berhasil diubah',
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server',
+    });
+  }
+};

@@ -99,23 +99,25 @@ class Journal {
       if (period === 'week') {
         query = `
           SELECT 
-            DATE_FORMAT(created_at, '%a') as day, 
-            AVG(mood_value) as average_mood 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as date_group,
+            DATE_FORMAT(MIN(created_at), '%a') as day, 
+            AVG(mood_value) as average_mood
           FROM journals 
           WHERE user_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
           GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d') 
-          ORDER BY created_at
+          ORDER BY date_group
         `;
       } else {
         // month
         query = `
           SELECT 
-            DATE_FORMAT(created_at, '%d') as day, 
-            AVG(mood_value) as average_mood 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as date_group,
+            DATE_FORMAT(MIN(created_at), '%d') as day, 
+            AVG(mood_value) as average_mood
           FROM journals 
           WHERE user_id = ? AND created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) 
           GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d') 
-          ORDER BY created_at
+          ORDER BY date_group
         `;
       }
 

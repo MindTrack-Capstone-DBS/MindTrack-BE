@@ -6,5 +6,6 @@ const router = express.Router();
 
 router.get('/profile', authMiddleware, userController.getProfile);
 router.put('/profile', authMiddleware, userController.updateProfile);
+router.put('/change-password', authMiddleware, userController.changePassword);
 
 module.exports = router;

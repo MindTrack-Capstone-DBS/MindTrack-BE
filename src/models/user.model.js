@@ -53,6 +53,26 @@ class User {
       throw error;
     }
   }
+
+  static async update(id, userData) {
+    return new Promise((resolve, reject) => {
+      const fields = Object.keys(userData)
+        .map((key) => `${key} = ?`)
+        .join(', ');
+      const values = Object.values(userData);
+      values.push(id);
+
+      const query = `UPDATE users SET ${fields} WHERE id = ?`;
+
+      db.query(query, values, (err, result) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  }
 }
 
 module.exports = User;
