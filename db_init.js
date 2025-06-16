@@ -1,12 +1,25 @@
 const mysql = require('mysql2');
 require('dotenv').config();
 
-// Konfigurasi koneksi
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-};
+let dbConfig = {};
+if (process.env.DATABASE_URL) {
+  const dbUrl = new URL(process.env.DATABASE_URL);
+  dbConfig = {
+    host: dbUrl.hostname,
+    user: dbUrl.username,
+    password: dbUrl.password,
+    port: dbUrl.port || 3306,
+    database: dbUrl.pathname.replace('/', ''),
+  };
+} else {
+  dbConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    port: process.env.DB_PORT || 3306,
+    database: process.env.DB_NAME || 'mindtrack_db',
+  };
+}
 
 // Buat koneksi
 const connection = mysql.createConnection(dbConfig);

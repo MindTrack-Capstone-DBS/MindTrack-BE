@@ -14,6 +14,7 @@ class ChatSession {
       user: dbConfig.USER,
       password: dbConfig.PASSWORD,
       database: dbConfig.DB,
+      port: dbConfig.PORT || 3306,
     });
   }
 
@@ -136,6 +137,7 @@ class ChatMessage {
       user: dbConfig.USER,
       password: dbConfig.PASSWORD,
       database: dbConfig.DB,
+      port: dbConfig.PORT || 3306,
     });
   }
 
