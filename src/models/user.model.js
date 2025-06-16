@@ -56,23 +56,21 @@ class User {
   }
 
   static async update(id, userData) {
-    return new Promise((resolve, reject) => {
+    const connection = await this.getConnection();
+    try {
       const fields = Object.keys(userData)
         .map((key) => `${key} = ?`)
         .join(', ');
       const values = Object.values(userData);
       values.push(id);
-
       const query = `UPDATE users SET ${fields} WHERE id = ?`;
-
-      db.query(query, values, (err, result) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(result);
-        }
-      });
-    });
+      const [result] = await connection.execute(query, values);
+      await connection.end();
+      return result.affectedRows > 0;
+    } catch (error) {
+      await connection.end();
+      throw error;
+    }
   }
 }
 
